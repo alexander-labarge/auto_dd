@@ -58,13 +58,20 @@ options:
   --start-service       Start the systemd service
 ```
 
-### Example Command
+### Example Commands
 
 To benchmark and determine the best block size:
 
 ```sh
 source venv/bin/activate
-sudo venv/bin/python3.12 auto_dd.py --source /dev/nvme0n1 --destination /dev/sda --benchmark --benchmark-size 1024 --enable-service --start-service
+sudo venv/bin/python3.12 auto_dd.py --source /dev/nvme0n1 --destination /dev/sda --benchmark --benchmark-size 1024 --enable-service
+```
+
+To Execute Service Immediately
+
+```sh
+source venv/bin/activate
+sudo venv/bin/python3.12 auto_dd.py --source /dev/nvme0n1 --destination /dev/sda --enable-service --start-service --block-size 32768
 ```
 
 ## Systemd Service
