@@ -1,5 +1,3 @@
-#!/home/skywalker/venv/bin/python3.12
-
 import argparse
 import os
 import subprocess
