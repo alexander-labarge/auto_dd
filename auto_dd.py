@@ -18,19 +18,21 @@ Usage: auto_dd.py [--source <SOURCE_DRIVE>] [--destination <DEST_DRIVE>] [--bloc
   --source <SOURCE_DRIVE>        Specify the source drive (default: /dev/nvme0n1)
   --destination <DEST_DRIVE>     Specify the destination drive (default: /dev/sdb)
   --block-size <BLOCK_SIZE>      Specify the block size for dd command (default: 32768)
-  --benchmark-size <SIZE>        Specify the size of the benchmark in MB (default: 1024 MB)
+  --benchmark-size <SIZE>        Specify the size of the benchmark in MB (default: 512 MB)
   --start-now                    Start the dd command immediately after setup
   --benchmark                    Benchmark to determine the best block size
   --enable-service               Enable the systemd service
   --start-service                Start the systemd service
 
 The dd command used in this program:
-  dd if=<SOURCE_DRIVE> of=<DEST_DRIVE> bs=<BLOCK_SIZE> status=progress [conv=fsync]
+  dd if=<SOURCE_DRIVE> of=<DEST_DRIVE> bs=<BLOCK_SIZE> seek=0 count=<COUNT> status=progress [conv=fsync]
 
 Flags explanation:
   if: Input file (source drive)
   of: Output file (destination drive)
   bs: Block size for read/write operations
+  seek=0: Start writing at byte offset 0
+  count=<COUNT>: Limit the number of blocks to copy
   status=progress: Display the progress of the operation
   conv=fsync: Physically write data to disk before finishing (not used for /dev/null)
 
@@ -54,6 +56,17 @@ def format_block_size(bs):
         return f"{bs / 1024:.2f} KB"
     return f"{bs} bytes"
 
+def flush_and_repartition(dest_drive):
+    """Creates a new GPT partition table."""
+    try:
+        subprocess.run(["sgdisk", "--zap-all", dest_drive], check=True)
+        subprocess.run(["sgdisk", "--new=1:0:0", dest_drive], check=True)
+        subprocess.run(["partprobe", dest_drive], check=True)
+    except subprocess.CalledProcessError as e:
+        print(f"Error repartitioning {dest_drive}: {e}")
+        return False
+    return True
+
 def run_dd(source_drive, dest_drive, block_size, benchmark_size):
     """Runs the dd command and returns the duration and output file."""
     count = (benchmark_size * 1024 * 1024) // block_size
@@ -64,18 +77,15 @@ def run_dd(source_drive, dest_drive, block_size, benchmark_size):
         f"of={dest_drive}",
         f"bs={block_size}",
         f"count={count}",
+        "seek=0",
         "status=progress"
     ]
 
     if dest_drive != "/dev/null":
         command.append("conv=fsync")
 
-    clear_command = [
-        "sh",
-        "-c",
-        f"dd if=/dev/zero of={dest_drive} bs=1M count=1 conv=fsync"
-    ]
-    subprocess.run(clear_command, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True)
+    if not flush_and_repartition(dest_drive):
+        return None, None
 
     with open(output_file, "w", encoding="utf-8") as f:
         start_time = time.time()
@@ -83,7 +93,9 @@ def run_dd(source_drive, dest_drive, block_size, benchmark_size):
             subprocess.run(command, stdout=f, stderr=subprocess.STDOUT, timeout=300, check=True)
         except subprocess.TimeoutExpired:
             return None, output_file
-        except subprocess.CalledProcessError:
+        except subprocess.CalledProcessError as e:
+            if "No space left on device" in str(e):
+                print(f"Error: {e}. Reducing benchmark size might help.")
             return None, output_file
         end_time = time.time()
 
@@ -135,7 +147,7 @@ def benchmark(source_drive, dest_drive, benchmark_size):
             if speed_value > best_speed:
                 best_speed = speed_value
                 best_block_size = bs
-        except ValueError:
+        except (ValueError, IndexError):
             results.append((format_block_size(bs), None, None, None))
             continue
 
@@ -149,7 +161,7 @@ def benchmark(source_drive, dest_drive, benchmark_size):
 def create_dd_script(source_drive, dest_drive, block_size):
     """Creates the dd script to be run by the systemd service."""
     script_content = f"""#!/bin/bash
-dd if={source_drive} of={dest_drive} bs={block_size} status=progress conv=fsync
+dd if={source_drive} of={dest_drive} bs={block_size} seek=0 status=progress conv=fsync
 """
     with open("/usr/local/bin/run_dd.sh", "w", encoding="utf-8") as f:
         f.write(script_content)
@@ -194,8 +206,8 @@ def main():
                         help="Specify the destination drive (default: /dev/sdb)")
     parser.add_argument("--block-size", type=int, default=32768,
                         help="Specify the block size for dd command (default: 32768)")
-    parser.add_argument("--benchmark-size", type=int, default=1024,
-                        help="Specify the size of the benchmark in MB (default: 1024 MB)")
+    parser.add_argument("--benchmark-size", type=int, default=512,
+                        help="Specify the size of the benchmark in MB (default: 512 MB)")
     parser.add_argument("--start-now", action="store_true",
                         help="Start the dd command immediately after setup")
     parser.add_argument("--benchmark", action="store_true",
