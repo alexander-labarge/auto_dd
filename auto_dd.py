@@ -1,3 +1,7 @@
+"""
+Auto DD Script: Automate the dd command with benchmarking and systemd service setup.
+"""
+
 import argparse
 import os
 import subprocess
@@ -7,8 +11,10 @@ import time
 import pandas as pd
 
 def usage():
+    """Prints the usage information for the script and exits."""
     print("""
-Usage: auto_dd.py [--source <SOURCE_DRIVE>] [--destination <DEST_DRIVE>] [--block-size <BLOCK_SIZE>] [--benchmark-size <SIZE>] [--start-now] [--benchmark] [--enable-service] [--start-service]
+Usage: auto_dd.py [--source <SOURCE_DRIVE>] [--destination <DEST_DRIVE>] [--block-size <BLOCK_SIZE>]
+                 [--benchmark-size <SIZE>] [--start-now] [--benchmark] [--enable-service] [--start-service]
   --source <SOURCE_DRIVE>        Specify the source drive (default: /dev/nvme0n1)
   --destination <DEST_DRIVE>     Specify the destination drive (default: /dev/sdb)
   --block-size <BLOCK_SIZE>      Specify the block size for dd command (default: 32768)
@@ -20,6 +26,7 @@ Usage: auto_dd.py [--source <SOURCE_DRIVE>] [--destination <DEST_DRIVE>] [--bloc
 
 The dd command used in this program:
   dd if=<SOURCE_DRIVE> of=<DEST_DRIVE> bs=<BLOCK_SIZE> status=progress [conv=fsync]
+
 Flags explanation:
   if: Input file (source drive)
   of: Output file (destination drive)
@@ -28,7 +35,9 @@ Flags explanation:
   conv=fsync: Physically write data to disk before finishing (not used for /dev/null)
 
 Reason for block size 32768:
-  The block size of 32768 bytes (32 KB) is often a good balance between performance and system resource usage. It can reduce the number of I/O operations by increasing the amount of data read/written per operation, which can improve overall throughput for large data transfers.
+  The block size of 32768 bytes (32 KB) is often a good balance between performance and system resource usage.
+  It can reduce the number of I/O operations by increasing the amount of data read/written per operation,
+  which can improve overall throughput for large data transfers.
 
 To view the output of the dd system service after boot, run the following command:
   sudo journalctl -u auto_dd.service -f
@@ -36,16 +45,17 @@ To view the output of the dd system service after boot, run the following comman
     sys.exit(1)
 
 def format_block_size(bs):
+    """Formats the block size into a human-readable string."""
     if bs >= 1024**3:
         return f"{bs / 1024**3:.2f} GB"
-    elif bs >= 1024**2:
+    if bs >= 1024**2:
         return f"{bs / 1024**2:.2f} MB"
-    elif bs >= 1024:
+    if bs >= 1024:
         return f"{bs / 1024:.2f} KB"
-    else:
-        return f"{bs} bytes"
+    return f"{bs} bytes"
 
 def run_dd(source_drive, dest_drive, block_size, benchmark_size):
+    """Runs the dd command and returns the duration and output file."""
     count = (benchmark_size * 1024 * 1024) // block_size
     output_file = f"dd_output_{block_size}.txt"
     command = [
@@ -60,28 +70,28 @@ def run_dd(source_drive, dest_drive, block_size, benchmark_size):
     if dest_drive != "/dev/null":
         command.append("conv=fsync")
 
-    # Ensure the destination device is cleared before starting dd operation
     clear_command = [
         "sh",
         "-c",
         f"dd if=/dev/zero of={dest_drive} bs=1M count=1 conv=fsync"
     ]
-    subprocess.run(clear_command, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    subprocess.run(clear_command, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True)
 
-    with open(output_file, "w") as f:
+    with open(output_file, "w", encoding="utf-8") as f:
         start_time = time.time()
         try:
-            subprocess.run(command, stdout=f, stderr=subprocess.STDOUT, timeout=300)
+            subprocess.run(command, stdout=f, stderr=subprocess.STDOUT, timeout=300, check=True)
         except subprocess.TimeoutExpired:
             return None, output_file
-        except Exception as e:
+        except subprocess.CalledProcessError:
             return None, output_file
         end_time = time.time()
 
     return end_time - start_time, output_file
 
 def parse_speed(output_file):
-    with open(output_file, "r") as f:
+    """Parses the speed from the dd output file."""
+    with open(output_file, "r", encoding="utf-8") as f:
         lines = f.readlines()
 
     last_line = lines[-1].strip()
@@ -92,12 +102,13 @@ def parse_speed(output_file):
         time_seconds = float(match.group(2))
         speed = match.group(3)
         return time_seconds, speed, bytes_transferred
-    else:
-        raise ValueError(f"Could not parse speed from {output_file}")
+    raise ValueError(f"Could not parse speed from {output_file}")
 
 def benchmark(source_drive, dest_drive, benchmark_size):
+    """Benchmarks different block sizes to determine the best one."""
     block_sizes = [
-        512, 1024, 2048, 4096, 8192, 16384, 32768, 65536, 131072, 262144, 524288, 1048576, 2097152, 4194304, 8388608, 16777216, 33554432, 67108864, 10485760
+        512, 1024, 2048, 4096, 8192, 16384, 32768, 65536, 131072, 262144, 524288,
+        1048576, 2097152, 4194304, 8388608, 16777216, 33554432, 67108864, 10485760
     ]
     results = []
     best_speed = 0
@@ -106,39 +117,46 @@ def benchmark(source_drive, dest_drive, benchmark_size):
     for bs in block_sizes:
         duration, output_file = run_dd(source_drive, dest_drive, bs, benchmark_size)
         if duration is None:
-            results.append((format_block_size(bs), None, None, None, None))
+            results.append((format_block_size(bs), None, None, None))
             continue
         try:
-            time, speed, bytes_transferred = parse_speed(output_file)
+            time_seconds, speed, bytes_transferred = parse_speed(output_file)
             mb_transferred = bytes_transferred / (1024 * 1024)
             gb_transferred = bytes_transferred / (1024**3)
             speed_value, speed_unit = speed.split()
             speed_value = float(speed_value)
             if "GB" in speed_unit:
                 speed_value *= 1024  # Convert GB/s to MB/s
-            results.append((format_block_size(bs), f"{mb_transferred:.2f} MB / {gb_transferred:.2f} GB", time, speed))
+            results.append(
+                (format_block_size(bs),
+                 f"{mb_transferred:.2f} MB / {gb_transferred:.2f} GB",
+                 time_seconds, speed)
+            )
             if speed_value > best_speed:
                 best_speed = speed_value
                 best_block_size = bs
-        except ValueError as e:
-            results.append((format_block_size(bs), None, None, None, None))
+        except ValueError:
+            results.append((format_block_size(bs), None, None, None))
             continue
 
     df = pd.DataFrame(results, columns=["Block Size", "Data Transferred", "Time (seconds)", "Speed"])
     print(df.to_string(index=False))
 
-    print(f"Best block size determined: {format_block_size(best_block_size)} with speed: {best_speed:.2f} MB/s")
+    print(f"Best block size determined: {format_block_size(best_block_size)} "
+          f"with speed: {best_speed:.2f} MB/s")
     return best_block_size
 
 def create_dd_script(source_drive, dest_drive, block_size):
+    """Creates the dd script to be run by the systemd service."""
     script_content = f"""#!/bin/bash
 dd if={source_drive} of={dest_drive} bs={block_size} status=progress conv=fsync
 """
-    with open("/usr/local/bin/run_dd.sh", "w") as f:
+    with open("/usr/local/bin/run_dd.sh", "w", encoding="utf-8") as f:
         f.write(script_content)
     os.chmod("/usr/local/bin/run_dd.sh", 0o755)
 
 def create_systemd_service():
+    """Creates the systemd service file."""
     service_content = """[Unit]
 Description=Run dd command at startup
 After=network.target
@@ -154,27 +172,38 @@ StandardError=journal
 [Install]
 WantedBy=multi-user.target
 """
-    with open("/etc/systemd/system/auto_dd.service", "w") as f:
+    with open("/etc/systemd/system/auto_dd.service", "w", encoding="utf-8") as f:
         f.write(service_content)
 
-    subprocess.run(["systemctl", "daemon-reload"])
+    subprocess.run(["systemctl", "daemon-reload"], check=True)
 
 def enable_systemd_service():
-    subprocess.run(["systemctl", "enable", "auto_dd.service"])
+    """Enables the systemd service."""
+    subprocess.run(["systemctl", "enable", "auto_dd.service"], check=True)
 
 def start_systemd_service():
-    subprocess.run(["systemctl", "start", "auto_dd.service"])
+    """Starts the systemd service."""
+    subprocess.run(["systemctl", "start", "auto_dd.service"], check=True)
 
 def main():
+    """Main function to parse arguments and execute the appropriate actions."""
     parser = argparse.ArgumentParser(description="Auto dd script")
-    parser.add_argument("--source", default="/dev/nvme0n1", help="Specify the source drive (default: /dev/nvme0n1)")
-    parser.add_argument("--destination", default="/dev/sdb", help="Specify the destination drive (default: /dev/sdb)")
-    parser.add_argument("--block-size", type=int, default=32768, help="Specify the block size for dd command (default: 32768)")
-    parser.add_argument("--benchmark-size", type=int, default=1024, help="Specify the size of the benchmark in MB (default: 1024 MB)")
-    parser.add_argument("--start-now", action="store_true", help="Start the dd command immediately after setup")
-    parser.add_argument("--benchmark", action="store_true", help="Benchmark to determine the best block size")
-    parser.add_argument("--enable-service", action="store_true", help="Enable the systemd service")
-    parser.add_argument("--start-service", action="store_true", help="Start the systemd service")
+    parser.add_argument("--source", default="/dev/nvme0n1",
+                        help="Specify the source drive (default: /dev/nvme0n1)")
+    parser.add_argument("--destination", default="/dev/sdb",
+                        help="Specify the destination drive (default: /dev/sdb)")
+    parser.add_argument("--block-size", type=int, default=32768,
+                        help="Specify the block size for dd command (default: 32768)")
+    parser.add_argument("--benchmark-size", type=int, default=1024,
+                        help="Specify the size of the benchmark in MB (default: 1024 MB)")
+    parser.add_argument("--start-now", action="store_true",
+                        help="Start the dd command immediately after setup")
+    parser.add_argument("--benchmark", action="store_true",
+                        help="Benchmark to determine the best block size")
+    parser.add_argument("--enable-service", action="store_true",
+                        help="Enable the systemd service")
+    parser.add_argument("--start-service", action="store_true",
+                        help="Start the systemd service")
 
     args = parser.parse_args()
 
@@ -186,7 +215,7 @@ def main():
 
     if args.start_now:
         print("Starting the dd command immediately...")
-        subprocess.run(["/usr/local/bin/run_dd.sh"])
+        subprocess.run(["/usr/local/bin/run_dd.sh"], check=True)
         sys.exit(0)
 
     create_systemd_service()
