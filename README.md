@@ -1,4 +1,4 @@
-Sure! Here's a README for your GitHub repository:
+Sure, here's the revised README with the statement about using `--benchmark` in conjunction with `--start-service` to automatically select the best block size and start the copy:
 
 ---
 
@@ -11,6 +11,7 @@ Sure! Here's a README for your GitHub repository:
 - Python 3.12
 - `venv` module for creating virtual environments
 - `pip` for installing required packages
+- Tested on Ubuntu 24.04
 
 ## Installation
 
@@ -67,11 +68,18 @@ source venv/bin/activate
 sudo venv/bin/python3.12 auto_dd.py --source /dev/nvme0n1 --destination /dev/sda --benchmark --benchmark-size 1024 --enable-service
 ```
 
-To Execute Service Immediately
+To execute the service immediately with the best block size:
 
 ```sh
 source venv/bin/activate
-sudo venv/bin/python3.12 auto_dd.py --source /dev/nvme0n1 --destination /dev/sda --enable-service --start-service --block-size 32768
+sudo venv/bin/python3.12 auto_dd.py --source /dev/nvme0n1 --destination /dev/sda --enable-service --start-service --benchmark --benchmark-size 1024
+```
+
+To allow the benchmark in conjunction with `--start-service` to automatically select the best block size and start the copy:
+
+```sh
+source venv/bin/activate
+sudo venv/bin/python3.12 auto_dd.py --source /dev/nvme0n1 --destination /dev/sda --benchmark --benchmark-size 1024 --enable-service --start-service
 ```
 
 ## Systemd Service
