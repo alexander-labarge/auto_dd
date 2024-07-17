@@ -97,7 +97,3 @@ If you have any suggestions or improvements, feel free to open an issue or creat
 ## License
 
 This project is licensed under the MIT License.
-
----
-
-Feel free to modify this README to suit your needs.
