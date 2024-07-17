@@ -1,7 +1,3 @@
-Sure, here's the revised README with the statement about using `--benchmark` in conjunction with `--start-service` to automatically select the best block size and start the copy:
-
----
-
 # auto_dd
 
 `auto_dd` is a Python script designed to automate the benchmarking and usage of the `dd` command to determine the best block size for data transfer operations. It also includes functionality to enable and start the `dd` operation as a systemd service on system startup.
