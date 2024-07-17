@@ -1,6 +1,6 @@
 #!/bin/bash
 
 source venv/bin/activate
-sudo venv/bin/python3.12 auto_dd.py --source /dev/nvme0n1 --destination /dev/sda --benchmark --benchmark-size 1024
+sudo venv/bin/python3.12 auto_dd.py --source /dev/nvme0n1 --destination /dev/sda --benchmark --benchmark-size 10240
 
 # sudo venv/bin/python3.12 auto_dd.py --source /dev/nvme0n1 --destination /dev/sda --start-service --block-size 32768
