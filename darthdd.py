@@ -120,7 +120,7 @@ def run_dd(source_drive, dest_drive, block_size, benchmark_size):
     with open(output_file, "w", encoding="utf-8") as f:
         start_time = time.time()
         try:
-            subprocess.run(command, stdout=f, stderr=subprocess.STDOUT, timeout=300, check=True)
+            subprocess.run(command, stdout=f, stderr=subprocess.STDOUT, timeout=1800, check=True)
         except subprocess.TimeoutExpired:
             return None, output_file
         except subprocess.CalledProcessError as e:
