@@ -2,6 +2,8 @@
 
 `darthdd` is a Python driven program designed to automate the benchmarking and usage of the `dd` linux utility to determine the best block size for most performant data transfer/ drive duplication operations. It also includes functionality to enable and start the `dd` operation as a systemd service on system startup to facilitate automated backups or automatic drive duplication efforts. 
 
+![image](https://github.com/user-attachments/assets/87959a2f-30ff-4d4f-8c96-214e9735f6b0)
+
 ## Prerequisites
 
 - Python 3.12
