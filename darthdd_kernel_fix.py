@@ -284,10 +284,6 @@ def main():
     if args.start_service:
         start_systemd_service()
 
-    print(colored("Setup complete. The dd command will now run on startup.", 'green'))
-    print(colored("To view the output of the dd system service after boot, run the following command:", 'green'))
-    print(colored("  sudo journalctl -u darthdd.service -f", 'cyan'))
-
 if __name__ == "__main__":
     if os.geteuid() != 0:
         sys.stderr.write(colored("This program must be run as root.\n", 'red'))
