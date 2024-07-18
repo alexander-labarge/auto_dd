@@ -42,7 +42,7 @@ pip install -r requirements.txt
 # Provide information on how to activate the virtual environment manually
 echo "Setup Complete. To run the script, use the following command after activating the virtual environment:"
 echo "source venv/bin/activate"
-echo "sudo venv/bin/python3.12 auto_dd.py --help"
+echo "sudo venv/bin/python3.12 darthdd.py --help"
 
 # Activate the virtual environment
 source venv/bin/activate
