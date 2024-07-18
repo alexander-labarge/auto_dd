@@ -1,6 +1,6 @@
-# auto_dd
+# darthdd
 
-`auto_dd` is a Python script designed to automate the benchmarking and usage of the `dd` command to determine the best block size for data transfer operations. It also includes functionality to enable and start the `dd` operation as a systemd service on system startup.
+`darthdd` is a Python driven program designed to automate the benchmarking and usage of the `dd` linux utility to determine the best block size for most performant data transfer/ drive duplication operations. It also includes functionality to enable and start the `dd` operation as a systemd service on system startup to facilitate automated backups or automatic drive duplication efforts. 
 
 ## Prerequisites
 
@@ -14,20 +14,21 @@
 1. Clone the repository:
 
    ```sh
-   git clone https://github.com/alexander-labarge/auto_dd.git
-   cd auto_dd/
+   git clone https://github.com/alexander-labarge/darthdd.git
+   cd darthdd/
    ```
 
-2. Run the setup script:
+2. Create and activate a virtual environment:
 
    ```sh
-   ./setup_and_run.sh
+   python3.12 -m venv venv
+   source venv/bin/activate
    ```
 
-3. To benchmark and determine the best block size, run:
+3. Install the required packages:
 
    ```sh
-   sudo ./benchmark.sh
+   pip install -r requirements.txt
    ```
 
 ## Usage
@@ -35,21 +36,21 @@
 After setting up, you can run the script with various arguments to perform different operations. Here is a list of available arguments:
 
 ```sh
-usage: auto_dd.py [-h] [--source SOURCE] [--destination DESTINATION] [--block-size BLOCK_SIZE] [--benchmark-size BENCHMARK_SIZE] [--start-now] [--benchmark]
-                  [--enable-service] [--start-service]
+usage: darthdd.py [-h] [--source SOURCE] [--destination DESTINATION] [--block-size BLOCK_SIZE] [--benchmark-size BENCHMARK_SIZE] [--execute-with-autobench] [--benchmark] [--enable-service] [--start-service]
 
 Auto dd script
 
-options:
+Arguments:
   -h, --help            show this help message and exit
   --source SOURCE       Specify the source drive (default: /dev/nvme0n1)
   --destination DESTINATION
-                        Specify the destination drive (default: /dev/sdb)
+                        Specify the destination drive (default: /dev/sda)
   --block-size BLOCK_SIZE
                         Specify the block size for dd command (default: 32768)
   --benchmark-size BENCHMARK_SIZE
                         Specify the size of the benchmark in MB (default: 1024 MB)
-  --start-now           Start the dd command immediately after setup
+  --execute-with-autobench
+                        Run benchmark and start the dd command with the best block size
   --benchmark           Benchmark to determine the best block size
   --enable-service      Enable the systemd service
   --start-service       Start the systemd service
@@ -57,25 +58,32 @@ options:
 
 ### Example Commands
 
-To benchmark and determine the best block size:
+#### Run benchmark and start `dd` with the best block size:
 
 ```sh
-source venv/bin/activate
-sudo venv/bin/python3.12 auto_dd.py --source /dev/nvme0n1 --destination /dev/sda --benchmark --benchmark-size 1024 --enable-service
+# Description: Run benchmark with default 1024 MB size and start dd with the best block size
+sudo venv/bin/python3.12 darthdd.py --execute-with-autobench --source /dev/nvme0n1 --destination /dev/sda
 ```
 
-To execute the service immediately with the best block size:
+#### Benchmark to determine the best block size:
 
 ```sh
-source venv/bin/activate
-sudo venv/bin/python3.12 auto_dd.py --source /dev/nvme0n1 --destination /dev/sda --enable-service --start-service --benchmark --benchmark-size 1024
+# Description: Run benchmark to determine the best block size
+sudo venv/bin/python3.12 darthdd.py --benchmark --source /dev/nvme0n1 --destination /dev/sda
 ```
 
-To allow the benchmark in conjunction with `--start-service` to automatically select the best block size and start the copy:
+#### Enable the systemd service:
 
 ```sh
-source venv/bin/activate
-sudo venv/bin/python3.12 auto_dd.py --source /dev/nvme0n1 --destination /dev/sda --benchmark --benchmark-size 1024 --enable-service --start-service
+# Description: Enable the systemd service for auto_dd
+sudo venv/bin/python3.12 darthdd.py --enable-service
+```
+
+#### Start the systemd service:
+
+```sh
+# Description: Start the systemd service for auto_dd
+sudo venv/bin/python3.12 darthdd.py --start-service
 ```
 
 ## Systemd Service
@@ -87,7 +95,7 @@ The script can enable and start a systemd service that runs the `dd` command on 
 To view the output of the `dd` system service after boot, run:
 
 ```sh
-sudo journalctl -u auto_dd.service -f
+sudo journalctl -u darthdd.service -f
 ```
 
 ## Contributing
@@ -97,3 +105,5 @@ If you have any suggestions or improvements, feel free to open an issue or creat
 ## License
 
 This project is licensed under the MIT License.
+
+---
