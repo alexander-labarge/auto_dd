@@ -93,10 +93,10 @@ def clear_destination(dest_drive):
     """Clears the destination device by writing zeros to it."""
     clear_command = [
         "dd",
-        f"if=/dev/zero",
+        "if=/dev/zero",
         f"of={dest_drive}",
         "bs=1M",
-        "count=1",
+        "status=progress",
         "conv=fsync"
     ]
     try:
@@ -283,6 +283,10 @@ def main():
 
     if args.start_service:
         start_systemd_service()
+
+    print(colored("Setup complete. The dd command will now run on startup.", 'green'))
+    print(colored("To view the output of the dd system service after boot, run the following command:", 'green'))
+    print(colored("  sudo journalctl -u darthdd.service -f", 'cyan'))
 
 if __name__ == "__main__":
     if os.geteuid() != 0:
