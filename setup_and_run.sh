@@ -46,4 +46,4 @@ echo "sudo venv/bin/python3.12 darthdd.py --help"
 
 # Activate the virtual environment
 source venv/bin/activate
-sudo venv/bin/python3.12 auto_dd.py --help
+sudo venv/bin/python3.12 darthdd.py --help
